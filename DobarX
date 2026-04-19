@@ -1,0 +1,987 @@
+import React, { useState, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from "react";
+import IntroAnimation from "@/components/IntroAnimation";
+import FeaturedWork from "@/components/FeaturedWork";
+import CinematicShowcase from "@/components/CinematicShowcase";
+import PortfolioSphere from "@/components/PortfolioSphere";
+import ServicesSection from "@/components/ServicesSection";
+import FinalCTA from "@/components/FinalCTA";
+import Footer from "@/components/Footer";
+
+const Index = () => {
+  const [activePhase, setActivePhase] = useState('hook');
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const strategyData: any = {
+    hook: {
+      title: "HOOK",
+      subtitle: "Hook the Scroll",
+      desc: "Capture attention in the first 0-3 seconds before they swipe away.",
+      video: "/video_hook.mp4" 
+    },
+    action: {
+      title: "ACTION",
+      subtitle: "Hold the Attention",
+      desc: "Relatable storytelling and raw visuals keep viewers engaged.",
+      video: "/video_action.mp4"
+    },
+    cta: {
+      title: "CTA",
+      subtitle: "Sell the Product",
+      desc: "A direct, benefit-first call to action that converts.",
+      video: "/video_cta.mp4"
+    }
+  };
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface Phase {
+  dur: number;
+  label: string;
+  title: string;
+  desc: string;
+  accent: string;
+  zone: number;
+  videoSrc: string;
+}
+
+// ─── Hero Phase Constants ──────────────────────────────────────────────────────
+const PHASES: Phase[] = [
+  {
+    dur: 3000,
+    label: "HOOK",
+    title: "Hook the Scroll",
+    desc: "Capture attention in the first 0–3 seconds before they swipe away.",
+    accent: "#e879f9",
+    zone: 0,
+    videoSrc: "/videos/video_hook.mp4",       // ← PASTE YOUR HOOK VIDEO URL HERE
+  },
+  {
+    dur: 12000,
+    label: "ACTION",
+    title: "Hold the Attention",
+    desc: "Relatable storytelling and raw visuals keep viewers engaged.",
+    accent: "#38bdf8",
+    zone: 1,
+    videoSrc: "/videos/video_action.mp4",     // ← PASTE YOUR ACTION VIDEO URL HERE
+  },
+  {
+    dur: 6000,
+    label: "CTA",
+    title: "Sell the Product",
+    desc: "A direct, benefit-first call to action that converts.",
+    accent: "#4ade80",
+    zone: 2,
+    videoSrc: "/videos/video_cta.mp4",        // ← PASTE YOUR CTA VIDEO URL HERE
+  },
+];
+
+const VID_FALLBACKS: Record<string, string> = {
+  "/videos/video_hook.mp4":   "linear-gradient(160deg,#ff6b35,#e879f9)",
+  "/videos/video_action.mp4": "linear-gradient(160deg,#1a1aff,#38bdf8)",
+  "/videos/video_cta.mp4":    "linear-gradient(160deg,#00c9a7,#4ade80)",
+};
+const CAPTIONS: Record<string, string> = {
+  "/videos/video_hook.mp4":   "Watch till the end 👀",
+  "/videos/video_action.mp4": "This is fire 🔥",
+  "/videos/video_cta.mp4":    "Don't miss out ✨",
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ── PREMIUM AD ARCHIVE — VIDEO CATALOGUE ─────────────────────────────────────
+// Add or remove entries here to grow your portfolio.
+// Each card becomes one slot in the carousel.
+// ─────────────────────────────────────────────────────────────────────────────
+interface AdCard {
+  id: string;
+  src: string;           // ← PASTE YOUR VIDEO URL HERE
+  poster?: string;       // optional thumbnail (shown before video plays)
+  title: string;
+  tag: string;
+  accent: string;        // neon glow colour for this card
+  fallback: string;      // gradient shown if video is unavailable
+}
+
+const AD_CARDS: AdCard[] = [
+  // ─── ADD / REMOVE CARDS BELOW ────────────────────────────────────────────
+  {
+    id: "ad1",
+    src: "/videos/ads/ad1.mp4",               // ← PASTE URL
+    title: "Product Launch",
+    tag: "UGC",
+    accent: "#e879f9",
+    fallback: "linear-gradient(160deg,#e879f9,#7c3aed)",
+  },
+  {
+    id: "ad2",
+    src: "/videos/ads/ad2.mp4",               // ← PASTE URL
+    title: "Brand Story",
+    tag: "VSL",
+    accent: "#38bdf8",
+    fallback: "linear-gradient(160deg,#0ea5e9,#6366f1)",
+  },
+  {
+    id: "ad3",
+    src: "/videos/ads/ad3.mp4",               // ← PASTE URL
+    title: "Flash Sale",
+    tag: "HOOK",
+    accent: "#fb923c",
+    fallback: "linear-gradient(160deg,#fb923c,#f43f5e)",
+  },
+  {
+    id: "ad4",
+    src: "/videos/ads/ad4.mp4",               // ← PASTE URL
+    title: "Testimonial",
+    tag: "SOCIAL",
+    accent: "#4ade80",
+    fallback: "linear-gradient(160deg,#4ade80,#0d9488)",
+  },
+  {
+    id: "ad5",
+    src: "/videos/ads/ad5.mp4",               // ← PASTE URL
+    title: "Unboxing",
+    tag: "UGC",
+    accent: "#facc15",
+    fallback: "linear-gradient(160deg,#facc15,#f97316)",
+  },
+  {
+    id: "ad6",
+    src: "/videos/ads/ad6.mp4",               // ← PASTE URL
+    title: "Before / After",
+    tag: "CTA",
+    accent: "#a78bfa",
+    fallback: "linear-gradient(160deg,#a78bfa,#ec4899)",
+  },
+  // ─── END OF CARDS ─────────────────────────────────────────────────────────
+];
+
+// ─── Utility ──────────────────────────────────────────────────────────────────
+function hexRgb(h: string): string {
+  const n = parseInt(h.slice(1), 16);
+  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+}
+
+// ─── Social Proof Bar ─────────────────────────────────────────────────────────
+const SocialProofBar = () => (
+  <div style={{
+    width: "100%", display: "flex", justifyContent: "center", alignItems: "center",
+    padding: "28px 24px",
+    borderTop: "1px solid rgba(255,255,255,0.06)",
+    background: "rgba(6,4,16,0.7)",
+    backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
+  }}>
+    <div style={{
+      display: "flex", alignItems: "center", gap: 16,
+      flexWrap: "wrap", justifyContent: "center",
+      color: "rgba(170,160,200,0.65)", fontSize: "0.85rem", fontFamily: "'Syne',sans-serif",
+    }}>
+      <div style={{ display: "flex" }}>
+        {["#e879f9","#818cf8","#38bdf8","#34d399","#fb923c"].map((c, i) => (
+          <div key={i} style={{
+            width: 30, height: 30, borderRadius: "50%", background: c,
+            border: "2px solid #060312", marginLeft: i === 0 ? 0 : -9,
+            boxShadow: `0 0 8px ${c}55`,
+          }} />
+        ))}
+      </div>
+      <span>Trusted by <strong style={{ color: "#fff", fontWeight: 800 }}>50,000+</strong> creators worldwide</span>
+      <span style={{ opacity: 0.2, fontSize: 20 }}>·</span>
+      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ color: "#fbbf24", letterSpacing: "0.06em", fontSize: "0.9rem" }}>★★★★★</span>
+        <span style={{ opacity: 0.55, fontSize: "0.78rem" }}>5.0 avg rating</span>
+      </span>
+    </div>
+  </div>
+);
+
+  const portfolioAds = [
+    { id: 1, url: "/ad1.mp4", title: "E-com Creative" },
+    { id: 2, url: "/ad2.mp4", title: "VSL Style" },
+    { id: 3, url: "/ad3.mp4", title: "UGC Product" },
+  ];
+// ─── Marquee Header ───────────────────────────────────────────────────────────
+const MarqueeHeader = () => {
+  const TICKER_TEXT = "INFINITY VIDEO AD CREATION";
+  const items = Array.from({ length: 14 }, (_, i) => (
+    <span key={i} style={{ display: "inline-flex", alignItems: "center" }}>
+      <span style={{
+        fontSize: 11, fontWeight: 800, letterSpacing: "0.26em",
+        textTransform: "uppercase", color: "rgba(210,200,240,0.78)",
+        fontFamily: "'Syne',sans-serif", whiteSpace: "nowrap",
+      }}>
+        {TICKER_TEXT}
+      </span>
+      <span style={{
+        display: "inline-block", width: 4, height: 4, borderRadius: "50%",
+        background: "linear-gradient(135deg,#a855f7,#38bdf8)",
+        margin: "0 32px", flexShrink: 0,
+        boxShadow: "0 0 7px rgba(168,85,247,0.7)",
+      }} />
+    </span>
+  ));
+
+  return (
+    <div className="min-h-screen text-white font-sans overflow-x-hidden relative" 
+         style={{ background: 'radial-gradient(circle at 50% 50%, #1e293b 0%, #020617 100%)', backgroundColor: '#020617' }}>
+      
+      {/* BACKGROUND NEBULA */}
+      <div className="fixed inset-0 pointer-events-none opacity-40" 
+           style={{ background: 'radial-gradient(circle at 20% 30%, rgba(59, 130, 246, 0.15) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(147, 51, 234, 0.1) 0%, transparent 50%)' }} 
+      />
+
+      {/* 1. MARQUEE HEADER (Čist CSS) */}
+      <div className="relative z-10 w-full bg-white/5 border-b border-white/10 py-3 overflow-hidden">
+        <div className="marquee-container flex whitespace-nowrap opacity-50 uppercase font-bold tracking-[0.4em] text-[10px]">
+          <div className="marquee-content py-1">
+            <span>INFINITY VIDEO AD CREATION • INFINITY VIDEO AD CREATION • INFINITY VIDEO AD CREATION • INFINITY VIDEO AD CREATION • </span>
+          </div>
+          <div className="marquee-content py-1">
+            <span>INFINITY VIDEO AD CREATION • INFINITY VIDEO AD CREATION • INFINITY VIDEO AD CREATION • INFINITY VIDEO AD CREATION • </span>
+          </div>
+        </div>
+    <div style={{
+      position: "fixed", top: 0, left: 0, right: 0, zIndex: 100, height: 44,
+      background: "rgba(6,4,16,0.85)",
+      backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+      borderBottom: "1px solid rgba(255,255,255,0.07)",
+      overflow: "hidden", display: "flex", alignItems: "center",
+    }}>
+      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 72, background: "linear-gradient(to right,rgba(6,4,16,0.95),transparent)", zIndex: 2, pointerEvents: "none" }} />
+      <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 72, background: "linear-gradient(to left,rgba(6,4,16,0.95),transparent)", zIndex: 2, pointerEvents: "none" }} />
+      {/* 55s = slow, premium, readable pace */}
+      <div style={{ display: "flex", animation: "marqueeScroll 55s linear infinite", willChange: "transform" }}>
+        <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>{items}</div>
+        <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }} aria-hidden="true">{items}</div>
+      </div>
+    </div>
+  );
+};
+
+      <div className="relative z-10 py-8 flex justify-center">
+        <h1 className="text-2xl font-black tracking-tighter">INFINITY.</h1>
+// ─── GlassCard ────────────────────────────────────────────────────────────────
+interface GlassCardProps {
+  children: React.ReactNode;
+  accent?: string;
+  isActive?: boolean;
+  style?: React.CSSProperties;
+  innerRef?: React.RefObject<HTMLDivElement>;
+  onClick?: () => void;
+}
+const GlassCard = ({ children, accent, isActive = true, style = {}, innerRef, onClick }: GlassCardProps) => (
+  <div ref={innerRef} onClick={onClick} style={{
+    background: accent ? `rgba(${hexRgb(accent)},${isActive ? "0.10" : "0.03"})` : "rgba(255,255,255,0.04)",
+    backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
+    border: isActive && accent ? `1.5px solid ${accent}` : "1px solid rgba(255,255,255,0.08)",
+    borderRadius: 18,
+    boxShadow: isActive && accent
+      ? `0 0 0 1px ${accent}44, 0 0 24px ${accent}55, 0 0 52px ${accent}20, inset 0 0 22px ${accent}12`
+      : "0 2px 24px rgba(0,0,0,0.3)",
+    transition: "all 0.4s ease",
+    cursor: onClick ? "pointer" : undefined,
+    ...style,
+  }}>
+    {children}
+  </div>
+);
+
+// ─── Phone Video Player ───────────────────────────────────────────────────────
+interface PhoneVideoProps {
+  src: string; fallbackGradient: string; caption: string;
+  phase: number; PW: number; PH: number;
+  screenRef: React.RefObject<HTMLDivElement>;
+}
+const PhoneVideo = ({ src, fallbackGradient, caption, phase, PW, PH, screenRef }: PhoneVideoProps) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [opacity, setOpacity] = useState(1);
+  const prevSrc = useRef(src);
+
+  useEffect(() => {
+    if (src === prevSrc.current) return;
+    setOpacity(0);
+    const swap = setTimeout(() => {
+      prevSrc.current = src;
+      if (videoRef.current) { videoRef.current.load(); videoRef.current.play().catch(() => {}); }
+      setOpacity(1);
+    }, 300);
+    return () => clearTimeout(swap);
+  }, [src]);
+
+  useEffect(() => { videoRef.current?.play().catch(() => {}); }, []);
+
+  return (
+    <div ref={screenRef} style={{ width: PW, height: PH, borderRadius: 16, overflow: "hidden", background: "#000", position: "relative", flexShrink: 0 }}>
+      <div style={{ position: "absolute", inset: 0, background: fallbackGradient, transition: "background 0.5s ease", zIndex: 0 }} />
+      <video ref={videoRef} key={src} muted loop playsInline autoPlay
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", borderRadius: 16, opacity, transition: "opacity 0.3s ease", zIndex: 1 }}>
+        <source src={src} type="video/mp4" />
+        <source src={src.replace(".mp4", ".webm")} type="video/webm" />
+      </video>
+      {/* Top bar */}
+      <div style={{ position: "absolute", top: 10, left: 9, right: 9, display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <div style={{ width: 18, height: 18, borderRadius: "50%", background: "rgba(255,255,255,0.9)" }} />
+          <span style={{ color: "#fff", fontSize: 7.5, fontWeight: 700, textShadow: "0 1px 4px rgba(0,0,0,0.7)" }}>creator_name</span>
+        </div>
+        <span style={{ background: "rgba(255,0,70,0.9)", color: "#fff", fontSize: 6.5, fontWeight: 800, padding: "1px 5px", borderRadius: 3 }}>LIVE</span>
+      </div>
+      {/* Scrub bar */}
+      <div style={{ position: "absolute", bottom: 44, left: 7, right: 7, height: 2, background: "rgba(255,255,255,0.18)", borderRadius: 2, overflow: "hidden", zIndex: 4 }}>
+        <div style={{ height: "100%", background: "#fff", animation: "vidProg 1.8s linear infinite", borderRadius: 2 }} />
+      </div>
+      {/* Caption */}
+      <div style={{ position: "absolute", bottom: 12, left: 7, right: 7, background: "rgba(0,0,0,0.62)", backdropFilter: "blur(4px)", borderRadius: 6, padding: "4px 7px", color: "#fff", fontSize: 8, fontWeight: 700, textAlign: "center", zIndex: 4 }}>
+        {caption}
+      </div>
+      {/* Zone overlays */}
+      {PHASES.map((p, i) => (
+        <div key={i} style={{
+          position: "absolute", left: 0, right: 0,
+          top: i === 0 ? 0 : i === 1 ? "33.33%" : "66.66%", height: "33.34%",
+          borderTop: i !== 2 ? `1.5px solid ${p.accent}` : "none",
+          borderBottom: i !== 0 ? `1.5px solid ${p.accent}` : "none",
+          borderLeft: "none", borderRight: "none",
+          borderRadius: i === 0 ? "16px 16px 0 0" : i === 2 ? "0 0 16px 16px" : 0,
+          boxShadow: `inset 0 0 16px ${p.accent}22`,
+          opacity: phase === i ? 1 : 0, transition: "opacity 0.55s ease",
+          pointerEvents: "none", zIndex: 5,
+        }} />
+      ))}
+      <div style={{ position: "absolute", inset: 0, borderRadius: 16, background: "linear-gradient(135deg,rgba(255,255,255,0.07) 0%,transparent 45%)", pointerEvents: "none", zIndex: 6 }} />
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ── PREMIUM AD ARCHIVE CAROUSEL ───────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+const PremiumAdArchive = () => {
+  const trackRef    = useRef<HTMLDivElement>(null);
+  const isDragging  = useRef(false);
+  const startX      = useRef(0);
+  const scrollLeft  = useRef(0);
+  const snapTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const videoRefs   = useRef<(HTMLVideoElement | null)[]>([]);
+
+      {/* 2. HERO */}
+      <section className="relative z-10 px-6 py-16 text-center max-w-4xl mx-auto">
+        <div className="inline-block px-4 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-[9px] font-bold tracking-widest text-blue-400 mb-8 uppercase">
+          ✨ High-Retention Video Ads
+  // Card geometry
+  const CARD_W  = 180;   // px — width of each phone card
+  const CARD_H  = Math.round(CARD_W * 16 / 9); // strict 9:16
+  const GAP     = 28;    // px between cards
+  const STRIDE  = CARD_W + GAP;
+
+  const [activeIdx, setActiveIdx] = useState(0);
+
+  // ── Play / pause videos based on which card is active ──────────────────────
+  useEffect(() => {
+    videoRefs.current.forEach((v, i) => {
+      if (!v) return;
+      if (i === activeIdx) {
+        v.play().catch(() => {});
+      } else {
+        v.pause();
+        v.currentTime = 0;
+      }
+    });
+  }, [activeIdx]);
+
+  // ── Snap to nearest card center ────────────────────────────────────────────
+  const snapToNearest = useCallback(() => {
+    const track = trackRef.current; if (!track) return;
+    const center = track.scrollLeft + track.clientWidth / 2;
+    // offset: first card center is at GAP + CARD_W/2 from track start
+    const firstCardCenter = GAP + CARD_W / 2;
+    const nearest = Math.round((center - firstCardCenter) / STRIDE);
+    const clamped = Math.max(0, Math.min(nearest, AD_CARDS.length - 1));
+    setActiveIdx(clamped);
+    // scroll so that card center aligns with track center
+    const targetScroll = firstCardCenter + clamped * STRIDE - track.clientWidth / 2;
+    track.scrollTo({ left: targetScroll, behavior: "smooth" });
+  }, []);
+
+  // ── Debounce snap after native scroll ends ─────────────────────────────────
+  const onScroll = useCallback(() => {
+    if (snapTimer.current) clearTimeout(snapTimer.current);
+    snapTimer.current = setTimeout(snapToNearest, 120);
+  }, [snapToNearest]);
+
+  // ── Desktop: drag-to-scroll ────────────────────────────────────────────────
+  const onMouseDown = (e: React.MouseEvent) => {
+    isDragging.current = true;
+    startX.current = e.pageX - (trackRef.current?.offsetLeft ?? 0);
+    scrollLeft.current = trackRef.current?.scrollLeft ?? 0;
+    if (trackRef.current) trackRef.current.style.cursor = "grabbing";
+  };
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging.current || !trackRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - trackRef.current.offsetLeft;
+    const walk = (x - startX.current) * 1.4; // 1.4 = drag multiplier
+    trackRef.current.scrollLeft = scrollLeft.current - walk;
+  };
+  const onMouseUp = () => {
+    isDragging.current = false;
+    if (trackRef.current) trackRef.current.style.cursor = "grab";
+    snapToNearest();
+  };
+
+  // ── Dot nav ────────────────────────────────────────────────────────────────
+  const goTo = (idx: number) => {
+    const track = trackRef.current; if (!track) return;
+    const firstCardCenter = GAP + CARD_W / 2;
+    const targetScroll = firstCardCenter + idx * STRIDE - track.clientWidth / 2;
+    track.scrollTo({ left: targetScroll, behavior: "smooth" });
+    setActiveIdx(idx);
+  };
+
+  // ── Scroll to first card on mount ──────────────────────────────────────────
+  useEffect(() => {
+    const track = trackRef.current; if (!track) return;
+    // Use requestAnimationFrame so layout is settled
+    requestAnimationFrame(() => {
+      const firstCardCenter = GAP + CARD_W / 2;
+      track.scrollLeft = firstCardCenter - track.clientWidth / 2;
+    });
+  }, []);
+
+  return (
+    <section style={{
+      position: "relative",
+      background: "radial-gradient(ellipse 80% 60% at 50% 40%, #0b0520 0%, #060312 60%, #000 100%)",
+      padding: "96px 0 80px",
+      overflow: "hidden",
+    }}>
+      {/* Ambient glow behind carousel */}
+      <div style={{ position: "absolute", width: 600, height: 400, borderRadius: "50%", top: "30%", left: "50%", transform: "translateX(-50%)", background: "radial-gradient(circle,rgba(120,40,255,0.12) 0%,transparent 70%)", filter: "blur(60px)", pointerEvents: "none" }} />
+
+      {/* Section header */}
+      <div style={{ textAlign: "center", marginBottom: 52, padding: "0 24px" }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(120,30,255,0.12)", border: "1px solid rgba(160,100,255,0.25)", borderRadius: 100, padding: "5px 18px", marginBottom: 20 }}>
+          <span style={{ fontSize: 10, letterSpacing: "0.2em", color: "#c4a0ff", textTransform: "uppercase", fontWeight: 700, fontFamily: "'Syne',sans-serif" }}>📁 PREMIUM AD ARCHIVE</span>
+        </div>
+        <h2 className="text-5xl md:text-7xl font-bold mb-8 leading-tight tracking-tight">
+          Ads That <br/><span className="text-blue-500">Stop The Scroll.</span>
+        <h2 style={{ fontSize: "clamp(1.6rem,3.5vw,2.6rem)", fontWeight: 800, color: "#fff", margin: "0 0 12px", letterSpacing: "-0.02em", fontFamily: "'Syne',sans-serif" }}>
+          The Work That{" "}
+          <span style={{ background: "linear-gradient(90deg,#e879f9,#38bdf8,#4ade80)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            Performs
+          </span>
+        </h2>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mt-10">
+          <button className="w-full sm:w-auto px-10 py-4 bg-blue-600 rounded-2xl font-bold shadow-lg shadow-blue-600/20">Book a Call</button>
+          <button className="w-full sm:w-auto px-10 py-4 bg-white/5 border border-white/10 rounded-2xl font-bold">My Work</button>
+        </div>
+      </section>
+
+      {/* 3. THE STRATEGY SECTION */}
+      <section className="relative z-10 py-24 px-6 max-w-5xl mx-auto">
+        <h3 className="text-center text-3xl font-bold mb-16 tracking-tight">The Strategy</h3>
+        <div className="grid md:grid-cols-2 gap-16 items-center">
+          <div className="space-y-6 order-2 md:order-1">
+            {Object.keys(strategyData).map((key) => (
+              <div 
+                key={key}
+                onClick={() => setActivePhase(key)}
+                className={`p-6 rounded-2xl border transition-all duration-300 cursor-pointer ${
+                  activePhase === key 
+                  ? 'bg-blue-600/10 border-blue-500 shadow-[0_0_30px_rgba(59,130,246,0.1)]' 
+                  : 'bg-white/5 border-white/5 hover:border-white/20'
+                }`}
+              >
+                <span className={`text-[10px] font-bold tracking-widest uppercase mb-2 block ${activePhase === key ? 'text-blue-400' : 'opacity-40'}`}>
+                  {strategyData[key].title}
+                </span>
+                <h4 className="text-xl font-bold mb-2">{strategyData[key].subtitle}</h4>
+                <p className="text-gray-400 text-sm leading-relaxed">{strategyData[key].desc}</p>
+        <p style={{ color: "rgba(195,182,225,0.55)", fontSize: "0.95rem", fontFamily: "'Syne',sans-serif", margin: 0 }}>
+          Drag or swipe to browse — click any card to focus
+        </p>
+      </div>
+
+      {/*
+        ── CAROUSEL TRACK ──────────────────────────────────────────────────────
+        overflow-x: scroll with hidden scrollbar + drag-to-scroll.
+        Padding on both sides ensures the first/last card can center.
+      */}
+      <div
+        ref={trackRef}
+        onScroll={onScroll}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseUp}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: GAP,
+          overflowX: "scroll",
+          overflowY: "visible",
+          cursor: "grab",
+          userSelect: "none",
+          WebkitOverflowScrolling: "touch",
+          // Hide scrollbar cross-browser
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+          // Tall enough to show glows without clip
+          paddingTop: 40,
+          paddingBottom: 52,
+          // Horizontal padding = half viewport so first/last card can center
+          paddingLeft: `calc(50vw - ${CARD_W / 2}px)`,
+          paddingRight: `calc(50vw - ${CARD_W / 2}px)`,
+        }}
+      >
+        {AD_CARDS.map((card, i) => {
+          const isActive = i === activeIdx;
+          // Distance from center: 0 = center, 1 = one slot away, etc.
+          const dist = Math.abs(i - activeIdx);
+          const scale   = isActive ? 1 : Math.max(0.72, 1 - dist * 0.1);
+          const opacity = isActive ? 1 : Math.max(0.28, 1 - dist * 0.28);
+          // 3-D tilt: cards to the left lean right, cards to the right lean left
+          const rotateY = isActive ? 0 : (i < activeIdx ? 14 : -14);
+          const rotateZ = isActive ? 0 : (i < activeIdx ? 1.5 : -1.5);
+
+          return (
+            <div
+              key={card.id}
+              onClick={() => goTo(i)}
+              style={{
+                flexShrink: 0,
+                width: CARD_W,
+                // Outer container handles 3D perspective + transforms
+                transform: `scale(${scale}) perspective(900px) rotateY(${rotateY}deg) rotateZ(${rotateZ}deg)`,
+                opacity,
+                transition: "transform 0.45s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.45s ease, filter 0.45s ease",
+                cursor: isActive ? "default" : "pointer",
+                // Active card drops a large coloured shadow
+                filter: isActive
+                  ? `drop-shadow(0 0 28px ${card.accent}88) drop-shadow(0 16px 48px ${card.accent}44)`
+                  : "none",
+                // Keep transform-origin at center so scaling looks natural
+                transformOrigin: "center center",
+                position: "relative",
+                zIndex: isActive ? 10 : Math.max(1, 5 - dist),
+              }}
+            >
+              {/* Phone shell */}
+              <div style={{
+                width: CARD_W,
+                height: CARD_H + 36,
+                borderRadius: 28,
+                background: "linear-gradient(145deg,#18182e,#0c0c1a)",
+                border: isActive
+                  ? `1.5px solid ${card.accent}`
+                  : "1px solid rgba(255,255,255,0.08)",
+                boxShadow: isActive
+                  ? `0 0 0 1px ${card.accent}44, inset 0 0 24px ${card.accent}18`
+                  : "inset 0 0 0 1px rgba(255,255,255,0.04)",
+                transition: "border 0.4s ease, box-shadow 0.4s ease",
+                position: "relative",
+                overflow: "visible",
+                padding: "18px 6px 6px",
+                boxSizing: "border-box" as const,
+              }}>
+                {/* Notch */}
+                <div style={{ position: "absolute", top: 7, left: "50%", transform: "translateX(-50%)", width: 38, height: 5, background: "#09091a", borderRadius: 4, zIndex: 10 }} />
+
+                {/* 9:16 Screen */}
+                <div style={{
+                  width: CARD_W - 12,
+                  height: CARD_H,
+                  borderRadius: 14,
+                  overflow: "hidden",
+                  position: "relative",
+                  background: "#000",
+                }}>
+                  {/* Gradient fallback (always behind video) */}
+                  <div style={{ position: "absolute", inset: 0, background: card.fallback, zIndex: 0 }} />
+
+                  {/*
+                    ── VIDEO ─────────────────────────────────────────────────
+                    src comes from AD_CARDS[i].src above.
+                    Active card plays; all others are paused and reset.
+                    To add more ads: add entries to the AD_CARDS array.
+                  */}
+                  <video
+                    ref={el => { videoRefs.current[i] = el; }}
+                    muted
+                    loop
+                    playsInline
+                    poster={card.poster}
+                    style={{
+                      position: "absolute", inset: 0,
+                      width: "100%", height: "100%",
+                      objectFit: "cover", objectPosition: "center",
+                      borderRadius: 14,
+                      zIndex: 1,
+                      // Smooth fade-in when video becomes active
+                      opacity: isActive ? 1 : 0.6,
+                      transition: "opacity 0.4s ease",
+                    }}
+                  >
+                    <source src={card.src} type="video/mp4" />
+                    <source src={card.src.replace(".mp4", ".webm")} type="video/webm" />
+                  </video>
+
+                  {/* Play icon on inactive cards */}
+                  {!isActive && (
+                    <div style={{
+                      position: "absolute", inset: 0, zIndex: 3,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      <div style={{
+                        width: 32, height: 32, borderRadius: "50%",
+                        background: "rgba(0,0,0,0.55)",
+                        backdropFilter: "blur(4px)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        <span style={{ fontSize: 12, marginLeft: 2 }}>▶</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tag badge */}
+                  <div style={{
+                    position: "absolute", top: 8, left: 8, zIndex: 5,
+                    background: `rgba(${hexRgb(card.accent)},0.85)`,
+                    backdropFilter: "blur(4px)",
+                    borderRadius: 5, padding: "2px 7px",
+                    fontSize: 7, fontWeight: 800, letterSpacing: "0.14em",
+                    color: "#fff", textTransform: "uppercase",
+                    fontFamily: "'Syne',sans-serif",
+                  }}>
+                    {card.tag}
+                  </div>
+
+                  {/* Glare */}
+                  <div style={{ position: "absolute", inset: 0, borderRadius: 14, background: "linear-gradient(135deg,rgba(255,255,255,0.06) 0%,transparent 45%)", pointerEvents: "none", zIndex: 6 }} />
+                </div>
+
+                {/* Side button */}
+                <div style={{ position: "absolute", right: -2, top: 52, width: 2, height: 24, background: "rgba(255,255,255,0.1)", borderRadius: "0 2px 2px 0" }} />
+              </div>
+
+              {/* Card title below phone */}
+              <div style={{ marginTop: 14, textAlign: "center" }}>
+                <p style={{
+                  fontFamily: "'Syne',sans-serif", fontSize: 11, fontWeight: 700,
+                  color: isActive ? "#fff" : "rgba(200,190,230,0.38)",
+                  letterSpacing: "0.04em", margin: 0,
+                  transition: "color 0.4s ease",
+                }}>
+                  {card.title}
+                </p>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-center order-1 md:order-2">
+            <div className="relative w-[280px] aspect-[9/16] bg-black rounded-[3rem] border-[10px] border-[#1e293b] shadow-2xl overflow-hidden">
+              <video 
+                key={activePhase}
+                src={strategyData[activePhase].video}
+                autoPlay loop muted playsInline
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+          );
+        })}
+      </div>
+
+      {/* Dot navigation */}
+      <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 4 }}>
+        {AD_CARDS.map((card, i) => (
+          <button
+            key={card.id}
+            onClick={() => goTo(i)}
+            aria-label={`Go to ${card.title}`}
+            style={{
+              width: i === activeIdx ? 24 : 7,
+              height: 7,
+              borderRadius: 4,
+              border: "none",
+              background: i === activeIdx ? card.accent : "rgba(255,255,255,0.18)",
+              boxShadow: i === activeIdx ? `0 0 10px ${card.accent}` : "none",
+              cursor: "pointer",
+              padding: 0,
+              transition: "all 0.35s ease",
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Webkit scrollbar hide */}
+      <style>{`.ad-archive-track::-webkit-scrollbar{display:none}`}</style>
+    </section>
+  );
+};
+
+// ─── Cosmic Hero ──────────────────────────────────────────────────────────────
+const CosmicHero = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const svgRef    = useRef<SVGSVGElement>(null);
+  const compRef   = useRef<HTMLDivElement>(null);
+  const screenRef = useRef<HTMLDivElement>(null);
+  const cardRefs  = useRef<(HTMLDivElement | null)[]>([]);
+  const [phase, setPhase] = useState(0);
+
+  const activePhase   = PHASES[phase];
+  const videoSrc      = activePhase.videoSrc;
+  const fallbackGrad  = VID_FALLBACKS[videoSrc] ?? "linear-gradient(160deg,#1a1aff,#8f00ff)";
+  const activeCaption = CAPTIONS[videoSrc] ?? "Going viral 🚀";
+
+  // Starfield canvas
+  useEffect(() => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const ctx = canvas.getContext("2d")!;
+    let animId: number;
+    const resize = () => { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; };
+    resize();
+    window.addEventListener("resize", resize);
+    const STARS = Array.from({ length: 200 }, () => ({
+      x: Math.random(), y: Math.random(),
+      r: Math.random() * 1.2 + 0.15,
+      speed: Math.random() * 0.00009 + 0.00002,
+      opacity: Math.random() * 0.55 + 0.15,
+    }));
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      STARS.forEach(s => {
+        s.x += s.speed; if (s.x > 1) s.x = 0;
+        ctx.beginPath();
+        ctx.arc(s.x * canvas.width, s.y * canvas.height, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(210,218,255,${s.opacity})`;
+        ctx.fill();
+      });
+      animId = requestAnimationFrame(draw);
+    };
+    draw();
+    return () => { cancelAnimationFrame(animId); window.removeEventListener("resize", resize); };
+  }, []);
+
+  // SVG connector lines
+  useEffect(() => {
+    const drawLines = () => {
+      const svg = svgRef.current, comp = compRef.current, screen = screenRef.current;
+      if (!svg || !comp || !screen) return;
+      if (window.innerWidth <= 900) { svg.innerHTML = ""; return; }
+      const cR = comp.getBoundingClientRect();
+      const sR = screen.getBoundingClientRect();
+      svg.setAttribute("viewBox", `0 0 ${cR.width} ${cR.height}`);
+      svg.style.width  = `${cR.width}px`;
+      svg.style.height = `${cR.height}px`;
+      svg.innerHTML = "";
+      const sl = sR.left - cR.left, st = sR.top - cR.top, sh = sR.height;
+      const zY = [sh * 0.167, sh * 0.5, sh * 0.833];
+      PHASES.forEach((p, i) => {
+        const card = cardRefs.current[i]; if (!card) return;
+        const dR = card.getBoundingClientRect();
+        const cx = dR.right - cR.left, cy = (dR.top + dR.bottom) / 2 - cR.top;
+        const tx = sl, ty = st + zY[i];
+        const mx = (cx + tx) / 2;
+        const isA = i === phase;
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", `M${cx},${cy} C${mx},${cy} ${mx},${ty} ${tx},${ty}`);
+        path.setAttribute("stroke", p.accent);
+        path.setAttribute("stroke-width", isA ? "1.5" : "1");
+        path.setAttribute("fill", "none");
+        path.setAttribute("opacity", isA ? "0.75" : "0.1");
+        path.setAttribute("stroke-dasharray", "4,5");
+        path.style.transition = "opacity 0.5s ease";
+        const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        dot.setAttribute("cx", String(tx)); dot.setAttribute("cy", String(ty));
+        dot.setAttribute("r", isA ? "4" : "3");
+        dot.setAttribute("fill", p.accent);
+        dot.setAttribute("opacity", isA ? "1" : "0.12");
+        svg.appendChild(path); svg.appendChild(dot);
+      });
+    };
+    drawLines();
+    let t: ReturnType<typeof setTimeout>;
+    const onResize = () => { clearTimeout(t); t = setTimeout(drawLines, 120); };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [phase]);
+
+  const PW = 148, PH = Math.round(PW * 16 / 9);
+
+  return (
+    <section style={{
+      position: "relative", minHeight: "100vh",
+      display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center",
+      overflow: "hidden", paddingTop: 80, paddingBottom: 80,
+      background: "radial-gradient(ellipse 90% 70% at 50% 30%, #0e0628 0%, #060312 55%, #000 100%)",
+    }}>
+      <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", width: 700, height: 500, borderRadius: "50%", background: "radial-gradient(circle,rgba(100,20,220,0.14) 0%,transparent 70%)", top: "-8%", left: "50%", transform: "translateX(-50%)", filter: "blur(60px)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", width: 350, height: 350, borderRadius: "50%", background: "radial-gradient(circle,rgba(0,160,255,0.08) 0%,transparent 70%)", bottom: "5%", left: "20%", filter: "blur(50px)", pointerEvents: "none" }} />
+
+      {/* Hero text */}
+      <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", maxWidth: 680, padding: "0 24px", marginBottom: 56 }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(120,30,255,0.15)", border: "1px solid rgba(160,100,255,0.3)", borderRadius: 100, padding: "5px 16px", marginBottom: 28 }}>
+          <span style={{ fontSize: 10, letterSpacing: "0.18em", color: "#c4a0ff", textTransform: "uppercase", fontWeight: 700, fontFamily: "'Syne',sans-serif" }}>✨ HIGH-RETENTION VIDEO ADS</span>
+        </div>
+      </section>
+
+      {/* 4. PREMIUM AD ARCHIVE */}
+      <section className="relative z-10 py-24 border-t border-white/5">
+        <h3 className="text-center text-3xl font-black mb-16 tracking-tighter uppercase">Premium Ad Archive</h3>
+        <div 
+          ref={scrollContainerRef}
+          className="flex gap-8 overflow-x-auto px-10 pb-12 no-scrollbar snap-x snap-mandatory"
+        >
+          {portfolioAds.map((ad) => (
+            <div 
+              key={ad.id}
+              className="min-w-[300px] aspect-[9/16] bg-gray-900/50 rounded-3xl snap-center border border-white/10 hover:border-blue-500/50 transition-all overflow-hidden relative group"
+            >
+              <video src={ad.url} loop muted playsInline className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-6 flex flex-col justify-end">
+                <p className="text-xs font-bold tracking-widest text-blue-400 uppercase">Case Study</p>
+                <p className="text-lg font-bold">{ad.title}</p>
+        <h1 style={{ fontSize: "clamp(2rem,4.8vw,3.6rem)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.03em", color: "#fff", margin: "0 0 20px", fontFamily: "'Syne',sans-serif" }}>
+          Scroll-Stopping UGC & VSL Ads{" "}
+          <span style={{ background: "linear-gradient(90deg,#a855f7,#38bdf8,#a855f7)", backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "shimmer 3.5s linear infinite" }}>
+            That Convert.
+          </span>
+        </h1>
+        <p style={{ fontSize: "clamp(0.95rem,1.8vw,1.1rem)", color: "rgba(195,182,225,0.7)", lineHeight: 1.7, marginBottom: 36, maxWidth: 520, fontFamily: "'Syne',sans-serif" }}>
+          We craft raw, highly-engaging 9:16 video ads designed specifically to scale your e-commerce brand and drop CPA.
+        </p>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+          <button style={{ background: "linear-gradient(135deg,#7b1fff,#2563eb)", color: "#fff", border: "none", borderRadius: 12, padding: "13px 32px", fontSize: "0.95rem", fontWeight: 700, cursor: "pointer", boxShadow: "0 0 32px rgba(120,30,255,0.4)", fontFamily: "'Syne',sans-serif", letterSpacing: "0.01em" }}>
+            Book a Call →
+          </button>
+          <button style={{ background: "rgba(255,255,255,0.05)", color: "rgba(210,200,240,0.9)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "13px 26px", fontSize: "0.95rem", fontWeight: 600, cursor: "pointer", fontFamily: "'Syne',sans-serif" }}>
+            View Portfolio
+          </button>
+        </div>
+      </div>
+
+      {/* Phone + Cards */}
+      <div ref={compRef} className="phone-composition" style={{ position: "relative", zIndex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 0 }}>
+        <svg ref={svgRef} style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none", overflow: "visible", zIndex: 2 }} />
+
+        {/* Strategy cards */}
+        <div className="strategy-cards" style={{ display: "flex", flexDirection: "column", gap: 10, marginRight: 28, zIndex: 3 }}>
+          {PHASES.map((p, i) => {
+            const isActive = phase === i;
+            return (
+              <div key={i} ref={el => cardRefs.current[i] = el}>
+                <GlassCard accent={p.accent} isActive={isActive} onClick={() => setPhase(i)}
+                  style={{ width: 188, padding: "12px 14px 16px", position: "relative", overflow: "hidden", opacity: isActive ? 1 : 0.38, transform: isActive ? "scale(1.04)" : "scale(1)" }}>
+                  {!isActive && (
+                    <div className="card-hover-hint" style={{ position: "absolute", inset: 0, borderRadius: 18, background: `rgba(${hexRgb(p.accent)},0.07)`, opacity: 0, transition: "opacity 0.2s ease", pointerEvents: "none", zIndex: 10 }} />
+                  )}
+                  <div style={{ marginBottom: 7 }}>
+                    <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: p.accent, boxShadow: isActive ? `0 0 10px ${p.accent}, 0 0 22px ${p.accent}88` : "none", marginRight: 7, verticalAlign: "middle", transition: "box-shadow 0.4s" }} />
+                    <span style={{ fontSize: 9, letterSpacing: "0.18em", fontWeight: 800, textTransform: "uppercase" as const, color: p.accent, verticalAlign: "middle", fontFamily: "'Syne',sans-serif" }}>{p.label}</span>
+                    {!isActive && <span style={{ float: "right", fontSize: 8, color: `rgba(${hexRgb(p.accent)},0.5)`, fontFamily: "'Syne',sans-serif", fontWeight: 600, letterSpacing: "0.05em", marginTop: 1 }}>tap ↗</span>}
+                  </div>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", margin: "0 0 4px", lineHeight: 1.3, fontFamily: "'Syne',sans-serif" }}>{p.title}</p>
+                  <p style={{ fontSize: 10.5, color: "rgba(195,182,225,0.65)", margin: 0, lineHeight: 1.55, fontFamily: "'Syne',sans-serif" }}>{p.desc}</p>
+                  <div style={{ position: "absolute", bottom: 0, left: 0, height: 2, background: p.accent, width: isActive ? "100%" : "0%", borderRadius: "0 0 18px 18px", boxShadow: isActive ? `0 0 8px ${p.accent}` : "none", transition: "width 0.4s ease, box-shadow 0.4s ease" }} />
+                </GlassCard>
+              </div>
+            </div>
+          ))}
+            );
+          })}
+        </div>
+      </section>
+
+      {/* 5. FOOTER */}
+      <footer className="relative z-10 py-20 flex flex-col items-center">
+        <div className="flex -space-x-2 mb-6 opacity-50">
+          {[1,2,3,4,5].map(i => (
+            <div key={i} className="w-12 h-12 rounded-full border-4 border-[#020617] bg-blue-900/20" />
+          ))}
+
+        {/* Phone mockup */}
+        <div style={{ perspective: 1100 }}>
+          <div style={{ transform: "rotateY(-14deg) rotateX(4deg) rotateZ(1.5deg)", transformStyle: "preserve-3d", animation: "phoneFloat 5.5s ease-in-out infinite", filter: `drop-shadow(0 28px 56px ${activePhase.accent}50)`, transition: "filter 0.6s ease" }}>
+            <div style={{ width: PW + 14, height: PH + 44, borderRadius: 30, background: "linear-gradient(145deg,#18182e,#0c0c1a)", border: "1.5px solid rgba(255,255,255,0.13)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.05)", position: "relative", overflow: "visible", padding: "22px 7px 7px", boxSizing: "border-box" as const }}>
+              <div style={{ position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)", width: 46, height: 6, background: "#09091a", borderRadius: 6, zIndex: 10 }} />
+              <PhoneVideo src={videoSrc} fallbackGradient={fallbackGrad} caption={activeCaption} phase={phase} PW={PW} PH={PH} screenRef={screenRef} />
+              <div style={{ position: "absolute", right: -2.5, top: 64, width: 2.5, height: 30, background: "rgba(255,255,255,0.12)", borderRadius: "0 2px 2px 0" }} />
+            </div>
+          </div>
+        </div>
+        <p className="text-sm text-gray-500 font-medium tracking-wide">Trusted by 50,000+ creators & brands</p>
+      </footer>
+      </div>
+
+      {/* Scroll cue */}
+      <div style={{ position: "relative", zIndex: 2, marginTop: 52, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, animation: "fadeUpIn 1s ease 1.2s both" }}>
+        <span style={{ fontSize: 10, letterSpacing: "0.18em", color: "rgba(180,168,210,0.45)", textTransform: "uppercase", fontFamily: "'Syne',sans-serif" }}>Scroll to explore</span>
+        <div style={{ width: 1, height: 36, background: "linear-gradient(to bottom,rgba(160,140,200,0.45),transparent)" }} />
+      </div>
+
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&display=swap');
+        @keyframes shimmer    { 0%{background-position:0% center} 100%{background-position:200% center} }
+        @keyframes phoneFloat {
+          0%,100%{transform:rotateY(-14deg) rotateX(4deg) rotateZ(1.5deg) translateY(0)}
+          50%    {transform:rotateY(-14deg) rotateX(4deg) rotateZ(1.5deg) translateY(-10px)}
+        }
+        @keyframes vidProg    { 0%{width:0%} 100%{width:100%} }
+        @keyframes fadeUpIn   { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes marqueeScroll {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .marquee-container { width: 100%; display: flex; overflow: hidden; }
+        .marquee-content {
+          display: flex;
+          white-space: nowrap;
+          animation: marquee 40s linear infinite;
+        .strategy-cards > div > div:hover .card-hover-hint { opacity: 1 !important; }
+        .strategy-cards > div > div:hover { opacity: 0.62 !important; transform: scale(1.015) !important; }
+        @media (max-width:900px){
+          .phone-composition{ flex-direction:column !important; align-items:center !important; gap:24px !important; }
+          .strategy-cards{ flex-direction:row !important; flex-wrap:wrap; justify-content:center; margin-right:0 !important; gap:8px !important; }
+          .strategy-cards > div{ order:2; }
+          .phone-composition > div:last-child{ order:1; }
+          .strategy-cards > div > div{ width:calc(50vw - 28px) !important; min-width:140px; max-width:200px; }
+        }
+        @media (max-width:480px){
+          .strategy-cards > div > div{ width:90vw !important; max-width:none; }
+        }
+      `}</style>
+    </section>
+  );
+};
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+const Index = () => {
+  const [introComplete, setIntroComplete] = useState(false);
+  const handleIntroComplete = useCallback(() => setIntroComplete(true), []);
+
+  return (
+    <div className="min-h-screen bg-background">
+      {!introComplete && <IntroAnimation onComplete={handleIntroComplete} />}
+      <div className={`transition-opacity duration-1000 ${introComplete ? "opacity-100" : "opacity-0"}`}>
+        <MarqueeHeader />
+        <CosmicHero />
+        {/*
+          ── PREMIUM AD ARCHIVE ─────────────────────────────────────────────────
+          Replaces the old mesh section. No PortfolioSphere / "Creative Hub" remnants.
+          To add more ads: push new entries into the AD_CARDS array near the top.
+        */}
+        <PremiumAdArchive />
+        <FeaturedWork />
+        <CinematicShowcase />
+        <ServicesSection />
+        <FinalCTA />
+        <SocialProofBar />
+        <Footer />
+      </div>
+    </div>
+  );
+};
