@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Coca-Cola — Ice Cold (spec spot)</title>
+  <style>
+    html, body { margin: 0; background: #000; color: #ddd; font: 13px/1.4 system-ui, sans-serif; }
+    #stage { max-width: 1280px; margin: 0 auto; }
+    #ui { max-width: 1280px; margin: 8px auto; display: flex; gap: 10px; align-items: center; padding: 0 16px; }
+    #scrub { flex: 1; }
+    #msg { opacity: .6; }
+  </style>
+  <script type="importmap">
+    { "imports": {
+      "three": "/node_modules/three/build/three.module.js",
+      "three/addons/": "/node_modules/three/examples/jsm/"
+    } }
+  </script>
+</head>
+<body>
+  <div id="stage"></div>
+  <div id="ui">
+    <button id="play">Play</button>
+    <input id="scrub" type="range" min="0" max="18" step="0.0333" value="0">
+    <span id="tc">0.00 s</span>
+    <span id="msg">building textures…</span>
+  </div>
+  <script type="module">
+    import { init } from './src/main.js';
+    const q = new URLSearchParams(location.search);
+    const app = await init();
+    window.__app = app;
+    document.getElementById('msg').textContent = '';
+    window.__ready = true;
+
+    // render mode: the Node driver (tools/render.mjs) pulls frames itself
+    if (!q.has('render')) {
+      const scrub = document.getElementById('scrub'), tc = document.getElementById('tc');
+      let playing = false, t0 = 0, tStart = 0;
+      const show = (t) => { app.renderAt(t, { sub: +(q.get('sub') || 1) }); tc.textContent = t.toFixed(2) + ' s'; scrub.value = t; };
+      scrub.oninput = () => { playing = false; show(+scrub.value); };
+      document.getElementById('play').onclick = () => { playing = !playing; t0 = performance.now(); tStart = +scrub.value >= 17.9 ? 0 : +scrub.value; loop(); };
+      const loop = () => { if (!playing) return; const t = tStart + (performance.now() - t0) / 1000; if (t >= app.DURATION) { playing = false; return; } show(t); requestAnimationFrame(loop); };
+      show(+(q.get('t') || 0));
+    }
+  </script>
+</body>
+</html>

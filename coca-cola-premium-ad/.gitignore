@@ -1,0 +1,4 @@
+node_modules/
+out/*
+!out/coca-cola-ice-cold-spec-ad.mp4
+!out/poster.jpg
