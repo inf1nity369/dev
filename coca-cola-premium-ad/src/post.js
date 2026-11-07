@@ -160,13 +160,13 @@ export class Post {
           // vignette (elliptical, soft)
           vec2 vd = d * vec2(uRes.x / uRes.y, 1.0) * 0.9;
           s *= mix(1.0, smoothstep(1.05, 0.15, length(vd)), uVignette);
+          s *= uFade;
           // overlay (titles), premultiplied
           vec4 o = texture2D(tOverlay, vUv);
           s = s * (1.0 - o.a * uOverlay) + o.rgb * uOverlay;
           // film grain, luminance-weighted, then fade + dither
           float n = hash(vUv * uRes) + hash(vUv * uRes + 17.0) - 1.0;
           s += n * uGrain * (0.35 + 0.65 * (1.0 - abs(l - 0.45) * 1.6));
-          s *= uFade;
           s += (hash(vUv * uRes + 3.7) - 0.5) / 255.0;
           gl_FragColor = vec4(clamp(s, 0.0, 1.0), 1.0);
         }`,
@@ -279,6 +279,8 @@ const TRANSITION_FS = `varying vec2 vUv;
       col += (vec3(1.3) * exp(-abs(s) / 0.005) + irid * exp(-abs(s) / 0.025) * 0.3) * fade;
       float ga = atan(q.y, q.x);
       col += vec3(2.2) * exp(-pow((ga - 2.3) / 0.22, 2.0)) * exp(-abs(s + 0.025) / 0.01) * 0.6 * fade;
+    } else if (uType > 3.5) {
+      col = mix(texture2D(tA, uv).rgb, texture2D(tB, uv).rgb, smoothstep(0.0, 1.0, p));
     } else {
       float flash = exp(-pow((p - 0.5) / 0.15, 2.0));
       vec3 a = radial(tA, uv, uCenter, 1.0 + 0.3 * p, 0.2 * flash);

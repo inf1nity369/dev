@@ -6,14 +6,19 @@ import { buildEnvironment, buildBackdrop, buildFloor } from './stage.js';
 import { colaMaterial, LiquidRibbon, Droplets, Bubbles, Ice, iceMaterial, Mist, Burst, waterMaterial } from './fx.js';
 import { Post } from './post.js';
 import { Overlay } from './overlay.js';
-import { FPS, DURATION, SHOTS, shotAt, stateAt, transitionAt, shotWindow, titlesAt } from './timeline.js';
+import { AsmrOverlay } from './overlay_asmr.js';
+import { buildGlass } from './glass.js';
+import { LiquidStream, StreamBubbles, StreamSpray, BubbleField } from './fx.js';
 
 const params = new URLSearchParams(location.search);
-const W = +(params.get('w') || 1920), H = +(params.get('h') || 1080);
+const EDIT = params.get('edit') || 'bright';
+const TL = await import(EDIT === 'asmr' ? './timeline_asmr.js' : './timeline.js');
+const { FPS, DURATION, SHOTS, shotAt, stateAt, transitionAt, shotWindow, titlesAt } = TL;
+const W = +(params.get('w') || (EDIT === 'asmr' ? 1080 : 1920)), H = +(params.get('h') || (EDIT === 'asmr' ? 1920 : 1080));
 
 async function loadFonts() {
   const base = '/node_modules/@fontsource/inter-tight/files/inter-tight-latin-';
-  await Promise.all([500, 600, 700].map(async (w) => {
+  await Promise.all([500, 600, 700, 800].map(async (w) => {
     const f = new FontFace('Inter Tight', `url(${base}${w}-normal.woff2)`, { weight: String(w) });
     await f.load(); document.fonts.add(f);
   }));
@@ -38,7 +43,7 @@ export async function init() {
   RectAreaLightUniformsLib.init();
 
   const scene = new THREE.Scene();
-  scene.environment = buildEnvironment(renderer);
+  scene.environment = buildEnvironment(renderer, TL.ENV || 'studio');
   const camera = new THREE.PerspectiveCamera(30, W / H, 0.4, 600);
   camera.filmGauge = 36;
   // three only reads camera.viewport to size the transmission buffer -> refraction at half res
@@ -78,8 +83,27 @@ export async function init() {
     speed: [3, 10], size: [0.04, 0.22], gravity: -16, life: 1.3, stretch: 2.2 });
   scene.add(crown.mesh);
 
+  // cinematic-cut assets
+  let glassA = null, mirrorGlass = null, stream = null, streamBub = null, streamSpray = null, field = null;
+  if (EDIT === 'asmr') {
+    glassA = buildGlass(logo); scene.add(glassA.group);
+    mirrorGlass = new THREE.Group(); mirrorGlass.matrixAutoUpdate = false;
+    const mg = glassA.group.clone(true); mg.children.forEach((o, i) => { if (i >= 3) o.visible = false; });
+    mirrorGlass.add(mg); scene.add(mirrorGlass);
+    const streamMat = colaMaterial();
+    stream = new LiquidStream(streamMat); scene.add(stream.mesh);
+    streamBub = new StreamBubbles(stream); scene.add(streamBub.mesh);
+    streamSpray = new StreamSpray(stream, streamMat); scene.add(streamSpray.mesh);
+    field = new BubbleField(); scene.add(field.mesh);
+  }
+
   const post = new Post(renderer, W, H);
-  const overlay = new Overlay(W, H, logo);
+  if (TL.GRADE) {
+    const gu = post.grade.material.uniforms;
+    gu.uVignette.value = TL.GRADE.vignette; gu.uGrain.value = TL.GRADE.grain; gu.uContrast.value = TL.GRADE.contrast;
+    gu.uSat.value = TL.GRADE.sat; gu.uCA.value = TL.GRADE.ca;
+  }
+  const overlay = EDIT === 'asmr' ? new AsmrOverlay(W, H, logo) : new Overlay(W, H, logo);
   post.grade.material.uniforms.tOverlay.value = overlay.tex;
 
   const R = new THREE.Matrix4().makeScale(1, -1, 1);
@@ -95,7 +119,8 @@ export async function init() {
     camera.updateMatrixWorld();
 
     // can
-    canRoot.position.set(0, st.can.y, 0);
+    canRoot.position.set(st.can.x || 0, st.can.y, 0);
+    canRoot.visible = st.can.visible !== false;
     canRoot.rotation.set(0, st.can.rotY, st.can.tilt);
     can.setOpen(st.can.tab, st.can.panel);
     can.setBead(!!st.bead, st.bead?.ang ?? 0, st.bead?.y ?? 0, st.bead?.v ?? 0);
@@ -103,7 +128,25 @@ export async function init() {
     canRoot.updateMatrixWorld(true);
     mirror.matrix.multiplyMatrices(R, canRoot.matrixWorld);
     mirror.matrixWorldNeedsUpdate = true;
-    mirror.visible = st.floor; floor.visible = st.floor;
+    mirror.visible = st.floor && canRoot.visible; floor.visible = st.floor;
+    if (glassA) {
+      const gs = st.glass || { on: false };
+      glassA.group.visible = !!gs.on;
+      if (gs.on) {
+        glassA.group.position.set(gs.x || 0, 0, 0);
+        glassA.updateBubbles(gs.t || 0);
+        glassA.updateDrips(gs.drips);
+        glassA.group.updateMatrixWorld(true);
+        mirrorGlass.matrix.multiplyMatrices(R, glassA.group.matrixWorld);
+        mirrorGlass.matrixWorldNeedsUpdate = true;
+      }
+      mirrorGlass.visible = !!gs.on && st.floor;
+      const ss = st.stream || { on: false };
+      stream.mesh.visible = streamBub.mesh.visible = streamSpray.mesh.visible = !!ss.on;
+      if (ss.on) { stream.update(ss.t); streamBub.update(ss.t); streamSpray.update(ss.t); }
+      const fs = st.field || { amt: 0 };
+      field.update(fs.t || 0, fs.amt || 0);
+    }
 
     // light + environment
     scene.environmentRotation.set(0, st.env.rot, 0);
@@ -114,6 +157,7 @@ export async function init() {
       sweep.position.set(Math.sin(a) * st.sweep.radius, st.sweep.height, Math.cos(a) * st.sweep.radius);
       sweep.lookAt(0, st.sweep.height, 0);
       sweep.intensity = st.sweep.intensity;
+      sweep.color.set(st.sweep.color ?? 0xfff6f0);
     }
 
     const bu = backdrop.material.uniforms, b = st.back;
@@ -143,7 +187,7 @@ export async function init() {
     mirrorIce.visible = st.floor && st.ice.on;
     ice.cubes.forEach((cb, i) => { mIceMeshes[i].matrix.multiplyMatrices(R, cb.m.matrixWorld); mIceMeshes[i].visible = cb.m.visible; mIceMeshes[i].matrixWorldNeedsUpdate = true; });
 
-    mist.update(st.mist.age, new THREE.Vector3(0, CAN.LID_Y + 0.15, 1.3));
+    mist.update(st.mist.age, new THREE.Vector3(0, CAN.LID_Y + 0.15, 1.3), st.mist.amt ?? 1);
     spray.update(st.spray.age);
     crown.update(st.crown.age);
 
@@ -181,7 +225,12 @@ export async function init() {
   function renderAt(t, { sub = 5, shutter = 0.5, toScreen = true, frameIndex = 0 } = {}) {
     const tr = transitionAt(t);
     let src, st;
-    if (tr) {
+    const probe = !tr ? stateAt(t, shotAt(t)) : null;
+    if (probe && probe.skip) {
+      st = probe;
+      renderer.setRenderTarget(post.rtA); renderer.setClearColor(0x000000, 1); renderer.clear(); renderer.setRenderTarget(null);
+      src = post.rtA;
+    } else if (tr) {
       const stA = renderShot(tr.a, t, sub, shutter, post.rtA);
       const stB = renderShot(tr.b, t, sub, shutter, post.rtB);
       src = post.transition(tr.T.type, tr.p, tr.T);
@@ -192,6 +241,7 @@ export async function init() {
     }
     const g = post.grade.material.uniforms;
     g.uFlash.value = st.post.flash; g.uExposure.value = st.post.exposure;
+    g.uFade.value = st.post.fade ?? 1;
     overlay.draw(titlesAt(t));
     g.uOverlay.value = 1;
     g.uFrame.value = frameIndex;

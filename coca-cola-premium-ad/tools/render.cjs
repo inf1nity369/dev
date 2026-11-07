@@ -14,7 +14,8 @@ const ROOT = path.resolve(__dirname, '..');
 const args = process.argv.slice(2);
 const arg = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 const has = (k) => args.includes('--' + k);
-const W = +arg('w', 1920), H = +arg('h', 1080), SUB = +arg('sub', 5);
+const EDIT = arg('edit', 'bright');
+const W = +arg('w', EDIT === 'asmr' ? 1080 : 1920), H = +arg('h', EDIT === 'asmr' ? 1920 : 1080), SUB = +arg('sub', 5);
 const OUT = path.join(ROOT, 'out');
 fs.mkdirSync(path.join(OUT, 'stills'), { recursive: true });
 
@@ -52,7 +53,7 @@ function pngFromRaw(buf, file) {
   page.on('pageerror', (e) => console.log('[pageerror]', e.message));
   page.setDefaultTimeout(0);
   const t0 = Date.now();
-  await page.goto(`http://127.0.0.1:${port}/index.html?render=1&w=${W}&h=${H}`);
+  await page.goto(`http://127.0.0.1:${port}/index.html?render=1&w=${W}&h=${H}&edit=${EDIT}`);
   await page.waitForFunction(() => window.__ready === true, null, { timeout: 0 });
   console.log(`init ${(Date.now() - t0) / 1000}s`);
   if (has('eval')) await page.evaluate(arg('eval'));
@@ -71,13 +72,13 @@ function pngFromRaw(buf, file) {
     for (const t of times) {
       cur = path.join(OUT, 'stills', `t${t.toFixed(2).padStart(5, '0')}.png`);
       const s = Date.now();
-      await renderFrame(t, Math.round(t * 30), +arg('sub', 1));
+      await renderFrame(t, Math.round(t * 25), +arg('sub', 1));
       console.log(`still ${t}s -> ${path.relative(ROOT, cur)} (${(Date.now() - s) / 1000}s)`);
     }
   }
 
   if (has('video')) {
-    const fps = 30, from = +arg('from', 0), to = +arg('to', 18);
+    const fps = +arg('fps', EDIT === 'asmr' ? 25 : 30), from = +arg('from', 0), to = +arg('to', EDIT === 'asmr' ? 15 : 18);
     const f0 = Math.round(from * fps), f1 = Math.round(to * fps);
     const outFile = path.join(OUT, arg('out', 'frames.mp4'));
     const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${W}x${H}`, '-r', String(fps), '-i', '-',

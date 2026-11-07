@@ -1,4 +1,42 @@
-# Coca-Cola, "Ice Cold": a premium studio product spot (spec)
+# Coca-Cola: premium CGI product spots (spec)
+
+There are two cuts. Both are made entirely in code: Three.js rendered offline, with synthesized sound.
+
+| Cut | Format | File |
+|---|---|---|
+| **Cinematic ASMR**: "Nothing sounds like an ice-cold Coke" | 9:16 vertical, 1080×1920, 25 fps, 15 s | `out/coca-cola-cinematic-asmr-9x16.mp4` |
+| Bright studio: "Taste the Feeling" | 16:9, 1920×1080, 30 fps, 18 s | `out/coca-cola-ice-cold-spec-ad.mp4` |
+
+## Cinematic ASMR cut (vertical)
+
+The cut is warm macro cinematography in amber and gold. Sensory captions sit in a closed-caption style, and it ends on a black card and the red disc.
+
+| Time | Shot | Caption |
+|---|---|---|
+| 0.0–2.0 | Macro on the frosted label. Focus breathes in as droplets catch the tungsten light. | [ ICE-COLD CONDENSATION ] |
+| 2.0–3.6 | Lid macro: the tab lifts (2.2), then PSST (2.5), with CO₂ mist and spray. | [ THAT ICONIC PSST ] |
+| 3.6–6.4 | A slow-motion jet of cola, backlit gold, carrying bubbles and peeling off spray. | [ MOUTHWATERING POUR ] |
+| 6.4–9.6 | A zoom-dive into the drink, then rising bubbles in amber light under a slow rack focus. | [ A SYMPHONY OF BUBBLES ] |
+| 9.6–12.0 | A Coca-Cola glass: drips slide over the printed wordmark while bubbles cling inside. | [ DRIPS OF PURE REFRESHMENT ] |
+| 12.0–13.4 | Hero shot of the can and the glass on warm lacquer, then fade to black. | |
+| 13.5–15.0 | "NOTHING SOUNDS LIKE / an Ice-Cold **Coke**.", then the red disc with the wordmark. | |
+
+The sound is ASMR foreground with a quiet felt-piano bed in D major:
+- condensation plips;
+- the tab click, then a crisp PSST and fizz;
+- a pour made of a bubbly stream and the rising pitch of a filling glass;
+- muffled, underwater bubble plinks;
+- drips letting go;
+- a four-note sonic logo on the red disc.
+
+```bash
+./tools/build_asmr.sh        # renders + mixes out/coca-cola-cinematic-asmr-9x16.mp4 (~40 min on 4 cores)
+NODE_PATH=$(npm root -g) node tools/render.cjs --edit asmr --stills 4.6,7.4,10.6
+```
+
+---
+
+# Bright studio cut: "Ice Cold" / "Taste the Feeling"
 
 An 18-second, 1080p/30 fps CGI product commercial for a Coca-Cola can. Everything is made in code:
 - the picture is Three.js PBR, rendered offline frame by frame in headless Chromium;

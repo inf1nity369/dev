@@ -18,31 +18,38 @@ function softboxMaterial(color, intensity, falloff = 3.0, vertical = true) {
   });
 }
 
-export function buildEnvironment(renderer) {
+export function buildEnvironment(renderer, look = 'studio') {
   const env = new THREE.Scene();
   env.background = new THREE.Color(0x000000);
   const add = (w, h, pos, color, intensity, fall, vertical = true) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), softboxMaterial(color, intensity, fall, vertical));
     m.position.set(...pos); m.lookAt(0, pos[1] * 0.25, 0); env.add(m); return m;
   };
-  // key strip, camera-left: the hero vertical highlight on the body
-  add(3.2, 60, [-19, 8, 25], 0xfff4ea, 7.5, 3.0);
-  // secondary strip, camera-right
-  add(2.0, 60, [25, 8, 16], 0xf0f4ff, 4.5, 4.0);
-  // back rims -> crisp white edge lines on both silhouettes
-  add(1.6, 60, [-15, 8, -18], 0xffffff, 14.0, 4.0);
-  add(1.6, 60, [15, 8, -18], 0xffffff, 14.0, 4.0);
-  // big overhead soft gradient -> the silver neck/lid read as polished metal
-  const top = new THREE.Mesh(new THREE.PlaneGeometry(7, 46), softboxMaterial(0xffffff, 3.2, 3.0));
-  top.position.set(-6, 40, 6); top.lookAt(0, 0, 0); env.add(top);
-  const top2 = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), softboxMaterial(0xffffff, 0.35, 1.5));
-  top2.position.set(0, 44, -10); top2.lookAt(0, 0, 0); env.add(top2);
-  // low warm-red bounce (brand colour picked up by the silver lid/neck)
-  add(60, 12, [0, -16, 24], 0xff1a10, 0.8, 2.0, false);
-  // deep red glow behind (matches the screen-space cyc)
-  add(80, 50, [0, 10, -45], 0xd0100a, 0.55, 1.5, false);
-  // soft front fill so whites stay white
-  add(40, 26, [0, 12, 40], 0xfff4ee, 0.7, 1.5, false);
+  const addTop = (w, h, pos, color, intensity, fall) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), softboxMaterial(color, intensity, fall));
+    m.position.set(...pos); m.lookAt(0, 0, 0); env.add(m);
+  };
+  if (look === 'warm') {
+    // cinematic tabletop: tungsten key, golden back rims, amber backlight, almost no fill
+    add(2.6, 60, [-20, 8, 22], 0xffd2a0, 6.0, 3.0);
+    add(1.6, 60, [24, 8, 12], 0xffe2c0, 2.5, 4.0);
+    add(1.4, 60, [-13, 8, -20], 0xffb766, 16.0, 4.0);
+    add(1.4, 60, [13, 8, -20], 0xffc27a, 12.0, 4.0);
+    addTop(6, 40, [-5, 40, 6], 0xffdcb0, 2.4, 3.0);
+    add(80, 50, [0, 10, -45], 0xff8a2a, 0.5, 1.5, false);
+    add(60, 12, [0, -16, 24], 0x7a2a08, 0.35, 2.0, false);
+    add(40, 26, [0, 12, 40], 0xffe6cc, 0.12, 1.5, false);
+  } else {
+    add(3.2, 60, [-19, 8, 25], 0xfff4ea, 7.5, 3.0);
+    add(2.0, 60, [25, 8, 16], 0xf0f4ff, 4.5, 4.0);
+    add(1.6, 60, [-15, 8, -18], 0xffffff, 14.0, 4.0);
+    add(1.6, 60, [15, 8, -18], 0xffffff, 14.0, 4.0);
+    addTop(7, 46, [-6, 40, 6], 0xffffff, 3.2, 3.0);
+    addTop(30, 30, [0, 44, -10], 0xffffff, 0.35, 1.5);
+    add(60, 12, [0, -16, 24], 0xff1a10, 0.8, 2.0, false);
+    add(80, 50, [0, 10, -45], 0xd0100a, 0.55, 1.5, false);
+    add(40, 26, [0, 12, 40], 0xfff4ee, 0.7, 1.5, false);
+  }
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   const rt = pmrem.fromScene(env, 0.0, 0.1, 200);

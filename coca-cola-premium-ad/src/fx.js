@@ -245,7 +245,7 @@ export class Mist {
       this.p.push({ s, ang: r() * Math.PI * 2, sp: 0.6 + r() * 2.2, up: 1.0 + r() * 3.2, size: 0.3 + r() * 1.1, rot: r(), delay: r() * 0.18 });
     }
   }
-  update(age, origin) {
+  update(age, origin, amt = 1) {
     this.group.visible = age > 0 && age < 4;
     for (const d of this.p) {
       const a = Math.max(0, age - d.delay);
@@ -256,7 +256,7 @@ export class Mist {
       d.s.position.set(x, y, z);
       const sz = d.size * (0.3 + k * 1.8);
       d.s.scale.set(sz, sz, sz);
-      d.s.material.opacity = 0.11 * sstep(0, 0.05, a) * (1 - sstep(0.5, 2.6, a));
+      d.s.material.opacity = 0.11 * amt * sstep(0, 0.05, a) * (1 - sstep(0.5, 2.6, a));
       d.s.material.rotation = d.rot * 6 + a * 0.3;
     }
   }
@@ -317,4 +317,160 @@ export function waterMaterial() {
     color: 0xffffff, roughness: 0.0, metalness: 0, transmission: 0.85, thickness: 0.25, ior: 1.33,
     clearcoat: 1, clearcoatRoughness: 0.0, envMapIntensity: 3.2,
   });
+}
+
+// ------------------------------------------------------------------ pour: a living cola stream
+// Thick, twisting jet with bulges that travel down the flow, bubbles carried inside, spray off it.
+export class LiquidStream {
+  constructor(material, { seg = 320, rad = 40 } = {}) {
+    this.SEG = seg; this.RAD = rad;
+    const n = (seg + 1) * (rad + 1);
+    this.pos = new Float32Array(n * 3);
+    this.geo = new THREE.BufferGeometry();
+    this.geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
+    this.geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+    const idx = [];
+    for (let i = 0; i < seg; i++) for (let j = 0; j < rad; j++) {
+      const a = i * (rad + 1) + j, b = a + rad + 1; idx.push(a, b, a + 1, b, b + 1, a + 1);
+    }
+    this.geo.setIndex(idx);
+    this.mesh = new THREE.Mesh(this.geo, material);
+    this.mesh.frustumCulled = false;
+  }
+  path(s, t) {
+    return new THREE.Vector3(-4.2 + 7.0 * s + 0.25 * Math.sin(s * 5 + t * 0.8), 17.5 - 19.5 * Math.pow(s, 1.55), 0.5 * Math.sin(s * 3.1 + 0.4));
+  }
+  radius(s, a, t) {
+    const R = 0.62 * (0.82 + 0.25 * s);
+    return R * (1 + 0.16 * Math.sin(s * 23 - t * 13 + 0.6 * Math.sin(a * 2)) + 0.07 * Math.sin(s * 57 - t * 29 + a * 3)
+      + 0.045 * Math.sin(a * 5 + s * 41 - t * 21) + 0.03 * Math.sin(a * 9 - s * 83 + t * 37));
+  }
+  update(t) {
+    const { SEG, RAD, pos } = this;
+    const T = new THREE.Vector3(), N = new THREE.Vector3(), B = new THREE.Vector3(), v = new THREE.Vector3();
+    for (let i = 0; i <= SEG; i++) {
+      const s = i / SEG;
+      const c = this.path(s, t), c2 = this.path(s + 0.002, t);
+      T.subVectors(c2, c).normalize();
+      N.set(0, 0, 1).cross(T).normalize(); B.crossVectors(T, N).normalize();
+      const twist = s * 7.0 - t * 2.0;
+      for (let j = 0; j <= RAD; j++) {
+        const a = (j / RAD) * Math.PI * 2;
+        const r = this.radius(s, a, t);
+        const ex = Math.cos(a) * r * 1.22, ey = Math.sin(a) * r * 0.86;
+        const cx = ex * Math.cos(twist) - ey * Math.sin(twist), cy = ex * Math.sin(twist) + ey * Math.cos(twist);
+        v.copy(c).addScaledVector(N, cx).addScaledVector(B, cy);
+        const o = (i * (RAD + 1) + j) * 3; pos[o] = v.x; pos[o + 1] = v.y; pos[o + 2] = v.z;
+      }
+    }
+    this.geo.attributes.position.needsUpdate = true;
+    this.geo.computeVertexNormals();
+  }
+}
+
+function bubbleShader({ additive = true, tint = [1.0, 0.62, 0.24], body = 0.0 } = {}) {
+  return new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+    uniforms: { uAmt: { value: 1 } },
+    vertexShader: `varying vec3 vN; varying vec3 vV;
+      void main(){ vec4 mv = modelViewMatrix * instanceMatrix * vec4(position,1.0);
+        vN = normalize(normalMatrix * mat3(instanceMatrix) * normal); vV = -mv.xyz; gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `varying vec3 vN; varying vec3 vV; uniform float uAmt;
+      void main(){ vec3 n = normalize(vN), v = normalize(vV);
+        float ndv = abs(dot(n, v)); float rim = pow(1.0 - ndv, 2.4);
+        float spec = pow(max(dot(reflect(-v, n), normalize(vec3(-0.3, 0.8, 0.5))), 0.0), 40.0);
+        float spec2 = pow(max(dot(reflect(-v, n), normalize(vec3(0.5, -0.6, 0.6))), 0.0), 18.0);
+        vec3 c = vec3(${tint.join(',')}) * rim * 1.9 + vec3(1.0, 0.93, 0.82) * spec * 4.0 + vec3(1.0, 0.7, 0.4) * spec2 * 0.6 + vec3(${tint.join(',')}) * ${body.toFixed(3)};
+        gl_FragColor = vec4(c * uAmt, ${additive ? '1.0' : 'clamp(rim + spec + 0.2, 0.0, 1.0) * uAmt'}); }`,
+  });
+}
+
+// bubbles carried inside the stream (drawn over it, the stream is translucent)
+export class StreamBubbles {
+  constructor(stream, count = 260, seed = 61) {
+    this.stream = stream;
+    this.mat = bubbleShader({ tint: [1.0, 0.7, 0.32] });
+    this.mat.depthTest = false;
+    this.mesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 2), this.mat, count);
+    this.mesh.frustumCulled = false; this.mesh.renderOrder = 20;
+    const r = rng(seed);
+    this.b = Array.from({ length: count }, () => ({ s0: r(), a: r() * Math.PI * 2, d: Math.sqrt(r()) * 0.75, size: 0.015 + Math.pow(r(), 3) * 0.08, sp: 0.22 + r() * 0.12 }));
+    this.m = new THREE.Matrix4();
+  }
+  update(t) {
+    const st = this.stream; let k = 0;
+    const T = new THREE.Vector3(), N = new THREE.Vector3(), B = new THREE.Vector3(), p = new THREE.Vector3();
+    for (const b of this.b) {
+      const s = (b.s0 + t * b.sp) % 1;
+      const c = st.path(s, t), c2 = st.path(s + 0.002, t);
+      T.subVectors(c2, c).normalize(); N.set(0, 0, 1).cross(T).normalize(); B.crossVectors(T, N).normalize();
+      const r = st.radius(s, b.a, t) * b.d;
+      p.copy(c).addScaledVector(N, Math.cos(b.a) * r * 1.1).addScaledVector(B, Math.sin(b.a) * r * 0.8);
+      const fade = Math.min(1, s * 12) * Math.min(1, (1 - s) * 12);
+      this.m.makeScale(b.size * fade, b.size * fade, b.size * fade).setPosition(p.x, p.y, p.z);
+      this.mesh.setMatrixAt(k++, this.m);
+    }
+    this.mesh.instanceMatrix.needsUpdate = true;
+  }
+}
+
+// droplets peeling off the stream (looping, deterministic)
+export class StreamSpray {
+  constructor(stream, material, count = 90, seed = 62) {
+    this.stream = stream;
+    this.mesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 16, 12), material, count);
+    this.mesh.frustumCulled = false;
+    const r = rng(seed);
+    this.p = Array.from({ length: count }, () => ({ s: 0.1 + r() * 0.8, per: 0.7 + r() * 0.8, ph: r(), dir: new THREE.Vector3(r() - 0.5, r() * 0.6, r() - 0.5).normalize(), sp: 1 + r() * 3.5, size: 0.02 + Math.pow(r(), 3) * 0.1 }));
+    this.m = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.sc = new THREE.Vector3(); this.v = new THREE.Vector3();
+  }
+  update(t) {
+    let k = 0;
+    for (const d of this.p) {
+      const age = ((t / d.per + d.ph) % 1) * d.per;
+      const born = t - age;
+      const o = this.stream.path(d.s, born);
+      const vel = d.dir.clone().multiplyScalar(d.sp);
+      this.v.set(o.x + vel.x * age, o.y + vel.y * age - 4.9 * age * age, o.z + vel.z * age);
+      const life = Math.min(1, age * 20) * (1 - Math.min(1, Math.max(0, (age - d.per * 0.6) / (d.per * 0.4))));
+      const vv = new THREE.Vector3(vel.x, vel.y - 9.8 * age, vel.z);
+      this.q.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vv.clone().normalize());
+      const sz = d.size * life;
+      this.sc.set(sz, sz * (1 + Math.min(1.5, vv.length() * 0.15)), sz);
+      this.m.compose(this.v, this.q, this.sc);
+      this.mesh.setMatrixAt(k++, this.m);
+    }
+    this.mesh.instanceMatrix.needsUpdate = true;
+  }
+}
+
+// inside the drink: a deep field of rising bubbles of every size
+export class BubbleField {
+  constructor(count = 1400, seed = 64) {
+    this.mat = bubbleShader({ tint: [1.0, 0.58, 0.2], body: 0.16 });
+    this.mesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 3), this.mat, count);
+    this.mesh.frustumCulled = false;
+    const r = rng(seed);
+    this.b = Array.from({ length: count }, () => {
+      const big = r() < 0.08;
+      const size = big ? 0.18 + r() * 0.45 : 0.015 + Math.pow(r(), 2.2) * 0.16;
+      const z = r() < 0.45 ? (r() - 0.5) * 3 : -16 + r() * 24;
+      return { x: (r() - 0.5) * 14, y: r() * 24, z, size, sp: 0.6 + size * 5 + r() * 0.6, wob: r() * 10, wa: 0.03 + r() * 0.12 };
+    });
+    this.m = new THREE.Matrix4();
+  }
+  update(t, amt = 1) {
+    this.mat.uniforms.uAmt.value = amt;
+    this.mesh.visible = amt > 0.001;
+    let k = 0;
+    for (const b of this.b) {
+      const y = ((b.y + t * b.sp) % 24) - 12;
+      const x = b.x + Math.sin(t * 2.3 + b.wob) * b.wa;
+      const z = b.z + Math.cos(t * 1.9 + b.wob) * b.wa;
+      const s = b.size;
+      this.m.makeScale(s, s * 0.95, s).setPosition(x, y, z);
+      this.mesh.setMatrixAt(k++, this.m);
+    }
+    this.mesh.instanceMatrix.needsUpdate = true;
+  }
 }
