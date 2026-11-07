@@ -6,7 +6,7 @@ import { buildEnvironment, buildBackdrop, buildFloor } from './stage.js';
 import { colaMaterial, LiquidRibbon, Droplets, Bubbles, Ice, iceMaterial, Mist, Burst, waterMaterial } from './fx.js';
 import { Post } from './post.js';
 import { Overlay } from './overlay.js';
-import { FPS, DURATION, SHOTS, shotAt, stateAt } from './timeline.js';
+import { FPS, DURATION, SHOTS, shotAt, stateAt, transitionAt, shotWindow, titlesAt } from './timeline.js';
 
 const params = new URLSearchParams(location.search);
 const W = +(params.get('w') || 1920), H = +(params.get('h') || 1080);
@@ -15,6 +15,11 @@ async function loadFonts() {
   const base = '/node_modules/@fontsource/inter-tight/files/inter-tight-latin-';
   await Promise.all([500, 600, 700].map(async (w) => {
     const f = new FontFace('Inter Tight', `url(${base}${w}-normal.woff2)`, { weight: String(w) });
+    await f.load(); document.fonts.add(f);
+  }));
+  const pf = '/node_modules/@fontsource/playfair-display/files/playfair-display-latin-';
+  await Promise.all([400, 500, 600].map(async (w) => {
+    const f = new FontFace('Playfair Display', `url(${pf}${w}-italic.woff2)`, { weight: String(w), style: 'italic' });
     await f.load(); document.fonts.add(f);
   }));
 }
@@ -111,9 +116,11 @@ export async function init() {
       sweep.intensity = st.sweep.intensity;
     }
 
-    const bu = backdrop.material.uniforms;
-    bu.uGlowPos.value.set(...st.back.glowPos); bu.uGlowRad.value = st.back.glowRad;
-    bu.uGlow.value = st.back.glow; bu.uShaft.value = st.back.shaft; bu.uShaftX.value = st.back.shaftX ?? 0.5; bu.uGlowCol.value.setRGB(...st.back.glowCol);
+    const bu = backdrop.material.uniforms, b = st.back;
+    bu.uTop.value.setRGB(...b.top); bu.uBottom.value.setRGB(...b.bottom);
+    bu.uGlowPos.value.set(...b.glowPos); bu.uGlowRad.value = b.glowRad; bu.uGlow.value = b.glow;
+    bu.uGlowCol.value.setRGB(...b.glowCol); bu.uRays.value = b.rays; bu.uBokeh.value = b.bokeh;
+    bu.uBokehCol.value.setRGB(...b.bokehCol); bu.uPar.value.set(...b.par); bu.uTime.value = t;
     bu.uAspect.value = W / H;
 
     // fx
@@ -142,25 +149,22 @@ export async function init() {
 
     // post
     const g = post.grade.material.uniforms;
-    g.uFlash.value = st.post.flash; g.uFade.value = st.post.fade; g.uExposure.value = st.post.exposure;
-    g.uOverlay.value = st.post.overlay;
+    g.uFlash.value = st.post.flash; g.uExposure.value = st.post.exposure;
     post.bloom.strength = st.post.bloom;
   }
 
-  let lastShot = -1;
-  function renderAt(t, { sub = 5, shutter = 0.5, toScreen = true, frameIndex = 0 } = {}) {
-    const si = shotAt(t);
-    const S = SHOTS[si];
+  const J = [[0, 0], [0.25, -0.375], [-0.375, 0.125], [0.375, 0.25], [-0.125, -0.25], [0.125, 0.375], [-0.25, -0.125], [0.0625, -0.0625]];
+
+  // render one shot (motion-blur sub-frames, DOF, bloom) into an HDR target
+  function renderShot(si, t, sub, shutter, target) {
+    const [w0, w1] = shotWindow(si);
     const times = [];
     for (let i = 0; i < sub; i++) {
       const o = sub === 1 ? 0 : ((i + 0.5) / sub - 0.5) * (shutter / FPS);
-      times.push(Math.min(S.end - 1e-4, Math.max(S.start, t + o)));
+      times.push(Math.min(w1, Math.max(w0, t + o)));
     }
-    // center sample last so its depth drives DOF
     const mid = Math.floor(sub / 2); const order = times.filter((_, i) => i !== mid).concat([times[mid]]);
     let stCenter = null;
-    // sub-pixel jitter per sub-frame: the accumulation doubles as supersampling AA
-    const J = [[0, 0], [0.25, -0.375], [-0.375, 0.125], [0.375, 0.25], [-0.125, -0.25], [0.125, 0.375], [-0.25, -0.125], [0.0625, -0.0625]];
     post.renderFrame(scene, camera, sub, (i) => {
       const st = stateAt(order[i], si);
       if (api.override) api.override(st, order[i]);
@@ -170,11 +174,29 @@ export async function init() {
       stCenter = st;
     });
     post.setLens(camera, stCenter.cam.focus ?? stCenter.cam.pos.distanceTo(stCenter.cam.target), stCenter.cam.fstop, stCenter.cam.maxCoc);
-    overlay.draw(stCenter.title);
-    post.grade.material.uniforms.uFrame.value = frameIndex;
-    post.finish(true, toScreen);
-    lastShot = si;
+    post.finishShot(true, target);
     return stCenter;
+  }
+
+  function renderAt(t, { sub = 5, shutter = 0.5, toScreen = true, frameIndex = 0 } = {}) {
+    const tr = transitionAt(t);
+    let src, st;
+    if (tr) {
+      const stA = renderShot(tr.a, t, sub, shutter, post.rtA);
+      const stB = renderShot(tr.b, t, sub, shutter, post.rtB);
+      src = post.transition(tr.T.type, tr.p, tr.T);
+      st = tr.p < 0.5 ? stA : stB;
+    } else {
+      st = renderShot(shotAt(t), t, sub, shutter, post.rtA);
+      src = post.rtA;
+    }
+    const g = post.grade.material.uniforms;
+    g.uFlash.value = st.post.flash; g.uExposure.value = st.post.exposure;
+    overlay.draw(titlesAt(t));
+    g.uOverlay.value = 1;
+    g.uFrame.value = frameIndex;
+    post.finish(src, toScreen);
+    return st;
   }
 
   function readPixels() {

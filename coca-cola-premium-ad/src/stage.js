@@ -42,7 +42,7 @@ export function buildEnvironment(renderer) {
   // deep red glow behind (matches the screen-space cyc)
   add(80, 50, [0, 10, -45], 0xd0100a, 0.55, 1.5, false);
   // soft front fill so whites stay white
-  add(40, 26, [0, 12, 40], 0xffffff, 0.42, 1.5, false);
+  add(40, 26, [0, 12, 40], 0xfff4ee, 0.7, 1.5, false);
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   const rt = pmrem.fromScene(env, 0.0, 0.1, 200);
@@ -50,35 +50,57 @@ export function buildEnvironment(renderer) {
   return rt.texture;
 }
 
-// screen-space cyc: deep black with an art-directable red glow + light shaft
+// screen-space cyc: luminous gradient + art-directable glow, soft light rays and drifting bokeh
 export function buildBackdrop() {
   const mat = new THREE.ShaderMaterial({
     depthTest: false, depthWrite: false,
     uniforms: {
       uAspect: { value: 16 / 9 },
+      uTop: { value: new THREE.Color(0.3, 0.0, 0.012) },
+      uBottom: { value: new THREE.Color(0.2, 0.0, 0.01) },
       uGlowPos: { value: new THREE.Vector2(0.5, 0.45) },
       uGlowRad: { value: 0.55 },
-      uGlowCol: { value: new THREE.Color(0.55, 0.02, 0.015) },
+      uGlowCol: { value: new THREE.Color(0.75, 0.06, 0.04) },
       uGlow: { value: 1.0 },
-      uBase: { value: new THREE.Color(0.006, 0.004, 0.004) },
-      uShaft: { value: 0.0 },
-      uShaftX: { value: 0.5 },
+      uRays: { value: 0.0 },
+      uBokeh: { value: 0.0 },
+      uBokehCol: { value: new THREE.Color(1.0, 0.6, 0.55) },
+      uPar: { value: new THREE.Vector2(0, 0) },
       uTime: { value: 0 },
     },
     vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.9999,1.0); }',
     fragmentShader: `varying vec2 vUv;
-      uniform float uAspect, uGlowRad, uGlow, uShaft, uShaftX, uTime;
-      uniform vec2 uGlowPos; uniform vec3 uGlowCol, uBase;
+      uniform float uAspect, uGlowRad, uGlow, uRays, uBokeh, uTime;
+      uniform vec2 uGlowPos, uPar; uniform vec3 uTop, uBottom, uGlowCol, uBokehCol;
+      float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+      float bokeh(vec2 uv, float scale, float t, float seed){
+        vec2 p = uv * scale; p.y -= t;
+        vec2 id = floor(p), f = fract(p);
+        float acc = 0.0;
+        for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
+          vec2 cid = id + vec2(float(i), float(j));
+          if (h21(cid + seed) > 0.5) continue;
+          vec2 c = vec2(float(i), float(j)) + 0.5 + (vec2(h21(cid + 1.3 + seed), h21(cid + 2.7 + seed)) - 0.5) * 0.7;
+          float rad = mix(0.1, 0.34, h21(cid + 4.1 + seed));
+          float d = length(f - c);
+          float disc = smoothstep(rad, rad * 0.86, d);
+          float rim = smoothstep(rad * 0.62, rad * 0.94, d) * disc;
+          float tw = 0.7 + 0.3 * sin(uTime * 1.7 + h21(cid + 7.7) * 40.0);
+          acc += (disc * 0.5 + rim * 0.5) * mix(0.25, 1.0, h21(cid + 9.0 + seed)) * tw;
+        }
+        return acc;
+      }
       void main(){
+        vec3 col = mix(uBottom, uTop, smoothstep(0.0, 1.0, vUv.y));
         vec2 d = (vUv - uGlowPos) * vec2(uAspect, 1.0);
         float r = length(d) / uGlowRad;
-        float g = exp(-r*r*2.2) * 0.85 + exp(-r*r*0.6) * 0.13;
-        vec3 col = uBase + uGlowCol * g * uGlow;
-        // hot core
-        col += uGlowCol * vec3(1.6, 0.9, 0.8) * exp(-r*r*9.0) * 0.35 * uGlow;
-        // soft vertical light shaft
-        float sx = (vUv.x - uShaftX) * uAspect;
-        col += vec3(1.0, 0.86, 0.8) * exp(-sx*sx*18.0) * smoothstep(-0.1, 1.0, vUv.y) * 0.05 * uShaft;
+        col += uGlowCol * (exp(-r * r * 1.6) * 0.9 + exp(-r * r * 0.45) * 0.22) * uGlow;
+        float ang = atan(d.y, d.x);
+        float rays = pow(0.5 + 0.5 * sin(ang * 9.0 + uTime * 0.22), 6.0) * 0.6 + pow(0.5 + 0.5 * sin(ang * 5.0 - uTime * 0.15 + 1.0), 8.0) * 0.4;
+        col += uGlowCol * vec3(1.0, 0.9, 0.85) * rays * exp(-r * 0.8) * 0.22 * uRays;
+        vec2 bu = vec2(vUv.x * uAspect, vUv.y) + uPar;
+        float b = bokeh(bu, 3.2, uTime * 0.07, 0.0) * 0.65 + bokeh(bu + 3.1, 6.0, uTime * 0.11, 5.0) * 0.35;
+        col += uBokehCol * b * uBokeh;
         gl_FragColor = vec4(col, 1.0);
       }`,
   });
@@ -91,9 +113,9 @@ export function buildFloor() {
   const mat = new THREE.ShaderMaterial({
     transparent: true, depthWrite: true,
     uniforms: {
-      uFade: { value: new THREE.Vector2(12, 60) },
+      uFade: { value: new THREE.Vector2(14, 70) },
       uOpacity: { value: 1 },
-      uTint: { value: new THREE.Color(0.0, 0.0, 0.0) },
+      uTint: { value: new THREE.Color(0.11, 0.0, 0.006) },
     },
     vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
     fragmentShader: `varying vec3 vW; uniform vec2 uFade; uniform float uOpacity; uniform vec3 uTint;

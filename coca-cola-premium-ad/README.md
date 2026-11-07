@@ -10,16 +10,21 @@ An 18-second, 1080p/30 fps CGI product commercial for a Coca-Cola can. Everythin
 
 **Output:** `out/coca-cola-ice-cold-spec-ad.mp4` (H.264 High, yuv420p, AAC 256k, faststart). It plays on phones, Instagram, YouTube and TV.
 
-## Edit (cuts on a 150 BPM grid: 0.4 s beats, 1.6 s bars)
+## Edit (120 BPM, 2 s bars; every cut is a designed transition on the beat)
 
 | Time | Shot | What happens |
 |---|---|---|
-| 0.0–2.8 | Cold reveal | Fade up from black on an extreme 100 mm macro of the frosted shoulder. A strip light slides across and the droplets ignite. One big bead lets go and runs down (stick-slip). |
-| 2.8–5.2 | Logo glide | 85 mm tracking move along the wordmark. The can counter-rotates, droplets go through the focus plane, and the shot ends on a whip-pan. |
-| 5.2–8.0 | Phsst | Whip in to a 3/4 top-down view of the lid: near-silence, then the tab click (6.0) and the PHSST on the bar downbeat (6.4). CO₂ mist, spray, a flash frame and a camera kick follow, and the fizz rises. |
-| 8.0–11.6 | Swirl | The drop. A cola ribbon spirals up around the can and speed-ramps from 1× to 0.2× slow motion. Ice tumbles through frame while splash droplets and carbonation fill the air. The camera orbits about 70°. |
-| 11.6–14.4 | Hero landing | The can falls into a low hero frame and lands on wet black lacquer on the beat: crown splash, camera shake, sub boom. A light sweep then crosses the logo. |
-| 14.4–18.0 | Packshot | The camera settles with the can on the right third. The wordmark wipes in on the left (15.2), the tagline tightens its tracking (15.8), and a shine sweeps across (16.35). The frame holds, then fades. |
+| 0.0–1.0 | Intro | Dreamy open: carbonation rises in focus over a luminous red cyc with drifting bokeh. The can is a soft shape behind. |
+| ~1.0 | **Ribbon wipe** | The white Coca-Cola swoosh sweeps across the frame and reveals the next shot. |
+| 1.0–3.0 | Macro | A 100 mm macro on the condensation while a strip light glides across. Slogan: *"Ice cold."* |
+| ~3.0 | **Zoom push** | Radial zoom blur through to the wordmark. |
+| 3.0–5.0 | Logo glide | An 85 mm tracking move along the wordmark, with the can counter-rotating. |
+| ~5.0 | **Bubble iris** | A growing bubble with an iridescent rim opens onto a bright cream studio. |
+| 5.0–8.0 | Open | 3/4 view of the lid: tab click (5.5), then PHSST on the downbeat (6.0). Slogan: *"Open happiness."* |
+| ~8.0 | **Light burst** | A warm flash plus zoom into the drop. |
+| 8.0–12.0 | Swirl | A cola ribbon spirals up the can with a speed ramp to slow motion. Ice tumbles, bokeh sparkles. |
+| ~12.0 | **Ribbon wipe** | The swoosh sweeps back the other way. |
+| 12.0–18.0 | Hero → packshot | The can lands on glossy red lacquer (12.5), then glides to the right third. The wordmark appears (15.0), then *"Taste the Feeling."* (16.0) and a shine. |
 
 ## How it is built (techniques taken from pro beverage pack-shot work)
 
@@ -35,6 +40,7 @@ An 18-second, 1080p/30 fps CGI product commercial for a Coca-Cola can. Everythin
   - big drops clear the frost around them.
 
   It drives a clearcoat "water layer" with its own normals and roughness, plus a frost veil.
+- **Look.** A bright, friendly palette: a luminous Coca-Cola-red cyc with a coral glow, soft light rays and drifting bokeh, and a cream high-key studio for the opening moment. The grade is clean, with light vignette and grain.
 - **Light.** An HDR studio built from emissive softboxes:
   - a key strip and a secondary strip, which make the vertical highlight lines;
   - twin back rims for the edge lines;
@@ -51,18 +57,16 @@ An 18-second, 1080p/30 fps CGI product commercial for a Coca-Cola can. Everythin
   - The CO₂ mist is sprites.
 - **Camera.** Physical focal lengths on a 36 mm sensor. The eases are bezier curves, e.g. `cubic-bezier(.83,0,.17,1)` for hero moves. The spot also uses whip transitions, a speed ramp and deterministic decaying shake.
 - **Finishing.** In order:
-  1. 5 sub-frames per frame with a 180° shutter, which gives real motion blur. Sub-pixel jitter on those sub-frames supersamples the image.
+  1. 4–5 sub-frames per frame with a 180° shutter, which gives real motion blur. Sub-pixel jitter on those sub-frames supersamples the image.
   2. Physical thin-lens depth of field: a half-res golden-angle gather with bokeh highlights.
   3. Bloom with warm halation.
-  4. Khronos PBR Neutral tonemap (it keeps brand red from skewing orange), contrast, split-tone, vignette, chromatic aberration, film grain and dither.
-- **Sound.** The track follows Coca-Cola's sound ritual: tab click → PHSST → fizz. It also has:
-  - whooshes that follow the camera;
-  - a riser into a 150 BPM half-time groove (D minor → F);
-  - a liquid swirl and ice clinks;
-  - a landing boom with splash;
-  - a bell sting on the logo.
+  4. Transitions composited between two fully rendered shots: ribbon wipe, zoom push, bubble iris and light burst.
+  5. Khronos PBR Neutral tonemap (it keeps brand red from skewing orange), a gentle grade, kinetic typography, and dither.
+- **Sound.** An upbeat 120 BPM tune in G major (G–D–Em–C), synthesized:
+  - a marimba melody, doubled by bells after the drop;
+  - a warm pad, plucky bass, soft kick, claps and shakers.
 
-  Everything goes through a reverb and a glue compressor/limiter.
+  Every transition has its own sound: a swoosh with glitter, zoom whoosh, bubble bloops and a burst shimmer. Then come the tab click, PHSST and fizz, ice clinks tuned to the key, a soft landing thump with splash, a glockenspiel arpeggio on the logo, and the melody resolves home on *"Taste the Feeling."*
 
 ## Run it
 
