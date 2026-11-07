@@ -5,7 +5,7 @@ There are two cuts. Both are made entirely in code: Three.js rendered offline, w
 | Cut | Format | File |
 |---|---|---|
 | **Cinematic ASMR**: "Nothing sounds like an ice-cold Coke" | 9:16 vertical, 1080×1920, 25 fps, 15 s | `out/coca-cola-cinematic-asmr-9x16.mp4` |
-| Bright studio: "Taste the Feeling" | 16:9, 1920×1080, 30 fps, 18 s | `out/coca-cola-ice-cold-spec-ad.mp4` |
+| Bright studio: "Taste the Feeling" | 16:9, 1920×1080, 30 fps, 18 s | render with `./tools/build.sh`. The committed `out/coca-cola-ice-cold-spec-ad.mp4` is still the first, darker draft. |
 
 ## Cinematic ASMR cut (vertical)
 
